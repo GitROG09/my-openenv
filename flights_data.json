@@ -1,0 +1,47 @@
+{
+  "Pune-Delhi": [
+    {"flight_number": "AI101", "price": 4500},
+    {"flight_number": "SG202", "price": 5000},
+    {"flight_number": "6E303", "price": 5200}
+  ],
+
+  "Pune-Mumbai": [
+    {"flight_number": "AI404", "price": 2500},
+    {"flight_number": "UK505", "price": 2800}
+  ],
+
+  "Pune-Bangalore": [
+    {"flight_number": "6E505", "price": 5300},
+    {"flight_number": "AI606", "price": 4900}
+  ],
+
+  "Pune-Hyderabad": [
+    {"flight_number": "SG707", "price": 4100},
+    {"flight_number": "6E808", "price": 4600}
+  ],
+
+  "Pune-Chennai": [
+    {"flight_number": "AI909", "price": 4800},
+    {"flight_number": "UK010", "price": 5100}
+  ],
+
+  "Delhi-Mumbai": [
+    {"flight_number": "AI303", "price": 4200},
+    {"flight_number": "UK404", "price": 4800}
+  ],
+
+  "Delhi-Bangalore": [
+    {"flight_number": "6E111", "price": 5400},
+    {"flight_number": "AI222", "price": 5100}
+  ],
+
+  "Mumbai-Bangalore": [
+    {"flight_number": "SG333", "price": 3900},
+    {"flight_number": "AI444", "price": 4300}
+  ],
+
+  "Mumbai-Delhi": [
+    {"flight_number": "AI555", "price": 4100},
+    {"flight_number": "6E666", "price": 4600}
+  ]
+}

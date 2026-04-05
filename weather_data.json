@@ -1,0 +1,46 @@
+{
+  "Delhi": {
+    "temperature": 32,
+    "condition": "Hot"
+  },
+
+  "Mumbai": {
+    "temperature": 29,
+    "condition": "Humid"
+  },
+
+  "Pune": {
+    "temperature": 26,
+    "condition": "Cloudy"
+  },
+
+  "Bangalore": {
+    "temperature": 22,
+    "condition": "Rainy"
+  },
+
+  "Hyderabad": {
+    "temperature": 35,
+    "condition": "Very Hot"
+  },
+
+  "Chennai": {
+    "temperature": 34,
+    "condition": "Hot"
+  },
+
+  "London": {
+    "temperature": 15,
+    "condition": "Foggy"
+  },
+
+  "Tokyo": {
+    "temperature": 21,
+    "condition": "Clear"
+  },
+
+  "New York": {
+    "temperature": 18,
+    "condition": "Windy"
+  }
+}

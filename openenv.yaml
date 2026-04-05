@@ -1,0 +1,132 @@
+tasks:
+
+  easy:
+
+    description: >
+      Select a destination city with comfortable weather
+      (temperature between 20°C and 30°C).
+
+    observation_space:
+
+      task_id: string
+
+      step: integer
+
+      goal:
+        type: string
+        temperature_range: tuple
+        # BUG FIX: was 'candidate_cities', unified to 'candidate_destinations'
+        # to match the key used in tasks.py and env.py
+        candidate_destinations: list
+
+      remaining_steps: integer
+
+      last_tool_output: dict
+
+      total_reward: float
+
+      normalized_score: float
+
+      history: list
+
+    action_space:
+
+      tool_name: string
+
+      parameters:
+        city: string
+
+    reward_range: [-5, 5]
+
+    grader_type: outcome_based
+
+
+
+  medium:
+
+    description: >
+      Select the cheapest flight from Pune to a city
+      with comfortable weather within budget.
+
+    observation_space:
+
+      task_id: string
+
+      step: integer
+
+      goal:
+        type: string
+        source_city: string
+        temperature_range: tuple
+        budget_limit: integer
+        candidate_destinations: list
+
+      remaining_steps: integer
+
+      last_tool_output: dict
+
+      total_reward: float
+
+      normalized_score: float
+
+      history: list
+
+    action_space:
+
+      tool_name: string
+
+      parameters:
+        source: string
+        destination: string
+        city: string
+
+    reward_range: [-5, 8]
+
+    grader_type: outcome_based
+
+
+
+  hard:
+
+    description: >
+      Plan a full trip by selecting a destination
+      with good weather, choosing the cheapest flight
+      under budget, and successfully booking the ticket.
+
+    observation_space:
+
+      task_id: string
+
+      step: integer
+
+      goal:
+        type: string
+        source_city: string
+        temperature_range: tuple
+        budget_limit: integer
+        booking_required: boolean
+        candidate_destinations: list
+
+      remaining_steps: integer
+
+      last_tool_output: dict
+
+      total_reward: float
+
+      normalized_score: float
+
+      history: list
+
+    action_space:
+
+      tool_name: string
+
+      parameters:
+        source: string
+        destination: string
+        city: string
+        flight_number: string
+
+    reward_range: [-5, 10]
+
+    grader_type: outcome_based
