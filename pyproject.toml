@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-serve = "server.app:main"
+server = "server.app:main"
 
 [project.entry-points."openenv.envs"]
 tool-orchestration = "env:ToolOrchestrationEnv"
