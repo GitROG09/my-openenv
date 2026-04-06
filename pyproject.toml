@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "openenv-agent-decision-lab"
+version = "1.0.0"
+description = "An OpenEnv-compatible tool orchestration environment for training AI agents on weather, flight search, and booking tasks."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["openenv", "reinforcement-learning", "tool-use", "agent", "environment"]
+
+dependencies = [
+    "Flask==2.3.0",
+    "Werkzeug==2.3.0",
+    "PyYAML==6.0",
+    "numpy==1.24.0",
+    "python-dotenv==1.0.0",
+    "gunicorn==21.2.0",
+    "openai>=1.0.0",
+]
+
+[project.entry-points."openenv.envs"]
+tool-orchestration = "env:ToolOrchestrationEnv"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["__pycache__", "*.pyc"]
+
+[tool.openenv]
+env_class        = "env:ToolOrchestrationEnv"
+inference_script = "inference.py"
+app_file         = "app.py"
+port             = 7860
+
+[tool.openenv.deployment]
+docker    = "Dockerfile"
+huggingface = true
+local     = true
+
+[tool.openenv.tasks.easy]
+description    = "Select a destination city with comfortable weather (temperature 20–30°C)."
+max_steps      = 4
+reward_range   = [-5, 5]
+grader_type    = "outcome_based"
+
+[tool.openenv.tasks.medium]
+description    = "Select the cheapest flight from Pune to a comfortable-weather city within budget."
+max_steps      = 6
+reward_range   = [-5, 8]
+grader_type    = "outcome_based"
+
+[tool.openenv.tasks.hard]
+description    = "Plan a full trip: find good-weather destination, cheapest flight under budget, and book the ticket."
+max_steps      = 8
+reward_range   = [-5, 10]
+grader_type    = "outcome_based"
