@@ -7,10 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Install the package itself so [project.scripts] entry points are registered.
-# This makes "serve" = "server.app:main" discoverable by openenv validate.
-RUN pip install --no-cache-dir -e .
-
 EXPOSE 7860
 
 ENV PYTHONUNBUFFERED=1
