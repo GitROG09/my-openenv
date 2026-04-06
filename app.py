@@ -424,7 +424,7 @@ async function executeStep() {
     setRewardEl('normScore',   state.normalized_score);
 
     if (data.done) {
-      episodeDone     = true;
+      episodeDone = true;
       btn.disabled    = true;
       btn.textContent = '⚡ Execute Action';
       setBadge('done');
@@ -498,7 +498,9 @@ def dashboard():
 @app.route('/reset', methods=['POST'])
 def reset():
     try:
-        data    = request.json or {}
+        # FIX: force=True ignores Content-Type header (fixes 415 Unsupported Media Type),
+        # silent=True returns None instead of raising an error on bad/missing JSON body.
+        data    = request.get_json(force=True, silent=True) or {}
         task_id = data.get('task_id', 'easy')
         state   = env.reset(task_id)
         return jsonify({'success': True, **state})
@@ -509,11 +511,11 @@ def reset():
 @app.route('/step', methods=['POST'])
 def step():
     try:
-        data       = request.json or {}
+        # FIX: force=True + silent=True on all POST routes
+        data       = request.get_json(force=True, silent=True) or {}
         tool_name  = data.get('tool_name')
         parameters = data.get('parameters', {})
 
-        # Guard: must call /reset before /step
         if env.current_task is None:
             return jsonify({
                 'success': False,
