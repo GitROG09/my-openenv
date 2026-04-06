@@ -22,7 +22,6 @@ dependencies = [
     "openenv-core>=0.2.0",
 ]
 
-# FIX: Missing [project.scripts] server entry point
 [project.scripts]
 serve = "server.app:main"
 
