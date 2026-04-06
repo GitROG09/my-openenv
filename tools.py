@@ -1,4 +1,5 @@
 import json
+import os
 import random
 from typing import Dict, Any
 
@@ -12,11 +13,16 @@ from chaos_engine import ChaosEngine
 chaos = ChaosEngine()
 
 
+# Resolve data files relative to this file's directory so the app works
+# regardless of what the current working directory is when gunicorn starts.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
 # =========================
 # LOAD WEATHER DATA
 # =========================
 
-with open("weather_data.json") as f:
+with open(os.path.join(_HERE, "weather_data.json")) as f:
     BASE_WEATHER_DB = json.load(f)
 
 
@@ -46,7 +52,7 @@ WEATHER_DB = generate_dynamic_weather()
 # LOAD FLIGHT DATA
 # =========================
 
-with open("flights_data.json") as f:
+with open(os.path.join(_HERE, "flights_data.json")) as f:
     FLIGHT_DB = json.load(f)
 
 

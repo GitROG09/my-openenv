@@ -19,7 +19,12 @@ dependencies = [
     "python-dotenv==1.0.0",
     "gunicorn==21.2.0",
     "openai>=1.0.0",
+    "openenv-core>=0.2.0",
 ]
+
+# FIX: Missing [project.scripts] server entry point
+[project.scripts]
+serve = "server.app:main"
 
 [project.entry-points."openenv.envs"]
 tool-orchestration = "env:ToolOrchestrationEnv"
@@ -32,28 +37,28 @@ exclude = ["__pycache__", "*.pyc"]
 [tool.openenv]
 env_class        = "env:ToolOrchestrationEnv"
 inference_script = "inference.py"
-app_file         = "app.py"
+app_file         = "server/app.py"
 port             = 7860
 
 [tool.openenv.deployment]
-docker    = "Dockerfile"
+docker      = "Dockerfile"
 huggingface = true
-local     = true
+local       = true
 
 [tool.openenv.tasks.easy]
-description    = "Select a destination city with comfortable weather (temperature 20–30°C)."
-max_steps      = 4
-reward_range   = [-5, 5]
-grader_type    = "outcome_based"
+description  = "Select a destination city with comfortable weather (temperature 20-30 degrees C)."
+max_steps    = 4
+reward_range = [-5, 5]
+grader_type  = "outcome_based"
 
 [tool.openenv.tasks.medium]
-description    = "Select the cheapest flight from Pune to a comfortable-weather city within budget."
-max_steps      = 6
-reward_range   = [-5, 8]
-grader_type    = "outcome_based"
+description  = "Select the cheapest flight from Pune to a comfortable-weather city within budget."
+max_steps    = 6
+reward_range = [-5, 8]
+grader_type  = "outcome_based"
 
 [tool.openenv.tasks.hard]
-description    = "Plan a full trip: find good-weather destination, cheapest flight under budget, and book the ticket."
-max_steps      = 8
-reward_range   = [-5, 10]
-grader_type    = "outcome_based"
+description  = "Plan a full trip: find good-weather destination, cheapest flight under budget, and book the ticket."
+max_steps    = 8
+reward_range = [-5, 10]
+grader_type  = "outcome_based"
