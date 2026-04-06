@@ -7,13 +7,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Install the package itself so [project.scripts] entry points are registered.
+# This makes "serve" = "server.app:main" discoverable by openenv validate.
+RUN pip install --no-cache-dir -e .
+
 EXPOSE 7860
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=7860
-
-# server/app.py is the canonical app location required by the evaluator.
-# PYTHONPATH=. ensures "from env import ..." etc. resolve from /app (the root).
 ENV PYTHONPATH=/app
 
 CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "1", "--timeout", "30", "server.app:app"]
