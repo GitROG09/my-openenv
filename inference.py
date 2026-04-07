@@ -5,19 +5,15 @@ from openai import OpenAI
 
 # =========================
 # ENVIRONMENT VARIABLES
-# (required by OpenEnv hackathon checker)
 # =========================
 
-API_BASE_URL = os.getenv("API_BASE_URL", "<your-active-endpoint>")
-MODEL_NAME   = os.getenv("MODEL_NAME",   "<your-active-model>")
-HF_TOKEN     = os.getenv("HF_TOKEN")
-
-# Optional — only needed if using from_docker_image()
+API_BASE_URL     = os.getenv("API_BASE_URL", "<your-active-endpoint>")
+MODEL_NAME       = os.getenv("MODEL_NAME",   "<your-active-model>")
+HF_TOKEN         = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 # =========================
 # OPENAI CLIENT
-# (all LLM calls use this client configured via the env vars above)
 # =========================
 
 client = OpenAI(
@@ -27,7 +23,6 @@ client = OpenAI(
 
 # =========================
 # TOOL DEFINITIONS
-# (passed to the LLM so it knows what actions are available)
 # =========================
 
 TOOLS = [
@@ -94,28 +89,26 @@ TOOLS = [
 # =========================
 
 def call_tool(tool_name: str, parameters: dict, base_url: str = "http://localhost:7860") -> dict:
-    """
-    Calls the OpenEnv /step endpoint to execute a tool in the environment.
-    Returns the tool output dict.
-    """
     import urllib.request
+    try:
+        payload = json.dumps({
+            "tool_name":  tool_name,
+            "parameters": parameters
+        }).encode("utf-8")
 
-    payload = json.dumps({
-        "tool_name":  tool_name,
-        "parameters": parameters
-    }).encode("utf-8")
+        req = urllib.request.Request(
+            f"{base_url}/step",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
 
-    req = urllib.request.Request(
-        f"{base_url}/step",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
 
-    with urllib.request.urlopen(req) as resp:
-        result = json.loads(resp.read().decode("utf-8"))
-
-    return result
+        return result
+    except Exception as e:
+        return {"error": str(e), "state": {}, "reward": 0, "done": False}
 
 
 # =========================
@@ -123,20 +116,21 @@ def call_tool(tool_name: str, parameters: dict, base_url: str = "http://localhos
 # =========================
 
 def reset_env(task_id: str, base_url: str = "http://localhost:7860") -> dict:
-    """Resets the OpenEnv environment for the given task."""
     import urllib.request
+    try:
+        payload = json.dumps({"task_id": task_id}).encode("utf-8")
 
-    payload = json.dumps({"task_id": task_id}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{base_url}/reset",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
 
-    req = urllib.request.Request(
-        f"{base_url}/reset",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        return {"error": str(e), "goal": {}, "remaining_steps": 8}
 
 
 # =========================
@@ -144,23 +138,14 @@ def reset_env(task_id: str, base_url: str = "http://localhost:7860") -> dict:
 # =========================
 
 def run_agent(task_id: str = "hard", base_url: str = "http://localhost:7860"):
-    """
-    Runs one full episode of the given task using an LLM agent.
 
-    Stdout follows the required structured format:
-      START  — emitted once at the beginning
-      STEP   — emitted after every tool call
-      END    — emitted once at the end with the final score
-    """
-
-    # ── START ──
     print("START", flush=True)
 
-    # Reset environment
-    state = reset_env(task_id, base_url)
-    goal  = state.get("goal", {})
+    try:
+        state = reset_env(task_id, base_url)
+        goal  = state.get("goal", {})
 
-    system_prompt = f"""You are an AI travel planning agent operating inside an OpenEnv tool-orchestration environment.
+        system_prompt = f"""You are an AI travel planning agent operating inside an OpenEnv tool-orchestration environment.
 
 Your goal: {json.dumps(goal, indent=2)}
 
@@ -172,67 +157,70 @@ You have access to three tools:
 Rules:
 - Only call tools that are relevant to the current goal.
 - If a tool returns an error, retry once with the same parameters before giving up.
-- For the hard task: first find cities with temperature 20-30°C, then find the cheapest flight under budget, then book it.
+- For the hard task: first find cities with temperature 20-30 degrees C, then find the cheapest flight under budget, then book it.
 - Stop calling tools once the goal is achieved or steps run out.
 """
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user",   "content": f"Complete the goal. Task: {task_id}. Goal: {json.dumps(goal)}"}
-    ]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": f"Complete the goal. Task: {task_id}. Goal: {json.dumps(goal)}"}
+        ]
 
-    max_steps    = state.get("remaining_steps", 8)
-    total_reward = 0.0
-    step_num     = 0
-    done         = False
+        max_steps    = state.get("remaining_steps", 8)
+        total_reward = 0.0
+        step_num     = 0
+        done         = False
 
-    while not done and step_num < max_steps:
+        while not done and step_num < max_steps:
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    max_tokens=512,
+                )
+            except Exception as e:
+                print(f"STEP tool=error params={{}} output={{\"error\": \"{str(e)}\"}} reward=0", flush=True)
+                break
 
-        # Ask LLM what to do next
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            max_tokens=512,
-        )
+            msg = response.choices[0].message
 
-        msg = response.choices[0].message
+            if msg.tool_calls:
+                tool_call  = msg.tool_calls[0]
+                tool_name  = tool_call.function.name
 
-        # If the LLM chose to call a tool
-        if msg.tool_calls:
+                try:
+                    parameters = json.loads(tool_call.function.arguments)
+                except Exception:
+                    parameters = {}
 
-            tool_call  = msg.tool_calls[0]
-            tool_name  = tool_call.function.name
-            parameters = json.loads(tool_call.function.arguments)
+                result       = call_tool(tool_name, parameters, base_url)
+                tool_output  = result.get("state", {}).get("last_tool_output", {})
+                reward       = result.get("reward", 0)
+                done         = result.get("done", False)
+                total_reward = result.get("state", {}).get("total_reward", total_reward)
+                step_num    += 1
 
-            # Execute tool in environment
-            result       = call_tool(tool_name, parameters, base_url)
-            tool_output  = result.get("state", {}).get("last_tool_output", {})
-            reward       = result.get("reward", 0)
-            done         = result.get("done", False)
-            total_reward = result.get("state", {}).get("total_reward", total_reward)
-            step_num    += 1
+                print(f"STEP tool={tool_name} params={json.dumps(parameters)} "
+                      f"output={json.dumps(tool_output)} reward={reward}", flush=True)
 
-            # ── STEP ──
-            print(f"STEP tool={tool_name} params={json.dumps(parameters)} "
-                  f"output={json.dumps(tool_output)} reward={reward}", flush=True)
+                messages.append({"role": "assistant", "content": None, "tool_calls": msg.tool_calls})
+                messages.append({
+                    "role":         "tool",
+                    "tool_call_id": tool_call.id,
+                    "content":      json.dumps(tool_output)
+                })
+            else:
+                break
 
-            # Feed tool result back into conversation
-            messages.append({"role": "assistant",  "content": None, "tool_calls": msg.tool_calls})
-            messages.append({
-                "role":         "tool",
-                "tool_call_id": tool_call.id,
-                "content":      json.dumps(tool_output)
-            })
-
-        else:
-            # LLM decided to stop — no more tool calls
-            break
+    except Exception as e:
+        print(f"STEP tool=error params={{}} output={{\"error\": \"{str(e)}\"}} reward=0", flush=True)
+        total_reward = 0.0
+        step_num     = 0
 
     normalized_score = min(total_reward / 10.0, 1.0)
 
-    # ── END ──
     print(f"END total_reward={total_reward:.2f} normalized_score={normalized_score:.4f}", flush=True)
 
     return {
