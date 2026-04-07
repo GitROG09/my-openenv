@@ -88,25 +88,21 @@ TOOLS = [
 # CALL TOOL VIA ENV API
 # =========================
 
-def call_tool(tool_name: str, parameters: dict, base_url: str = "http://localhost:7860") -> dict:
+def call_tool(tool_name: str, parameters: dict, base_url: str) -> dict:
     import urllib.request
     try:
         payload = json.dumps({
             "tool_name":  tool_name,
             "parameters": parameters
         }).encode("utf-8")
-
         req = urllib.request.Request(
             f"{base_url}/step",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST"
         )
-
         with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-
-        return result
+            return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         return {"error": str(e), "state": {}, "reward": 0, "done": False}
 
@@ -115,18 +111,16 @@ def call_tool(tool_name: str, parameters: dict, base_url: str = "http://localhos
 # RESET ENVIRONMENT
 # =========================
 
-def reset_env(task_id: str, base_url: str = "http://localhost:7860") -> dict:
+def reset_env(task_id: str, base_url: str) -> dict:
     import urllib.request
     try:
         payload = json.dumps({"task_id": task_id}).encode("utf-8")
-
         req = urllib.request.Request(
             f"{base_url}/reset",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST"
         )
-
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
@@ -134,44 +128,58 @@ def reset_env(task_id: str, base_url: str = "http://localhost:7860") -> dict:
 
 
 # =========================
-# AGENT LOOP
+# CLAMP SCORE TO (0, 1) EXCLUSIVE
 # =========================
 
-def run_agent(task_id: str = "hard", base_url: str = "http://localhost:7860"):
+def clamp_score(raw_reward: float, min_reward: float = -5.0, max_reward: float = 10.0) -> float:
+    """
+    Normalise reward to strictly (0, 1) — never exactly 0.0 or 1.0.
+    The evaluator rejects scores at the boundaries.
+    """
+    span = max_reward - min_reward
+    normalised = (raw_reward - min_reward) / span if span > 0 else 0.5
+    # Clamp to open interval (0.01, 0.99)
+    return max(0.01, min(0.99, round(normalised, 4)))
 
-    # ── START ──
+
+# =========================
+# RUN ONE TASK
+# =========================
+
+def run_task(task_id: str, base_url: str) -> dict:
+
     print(f"[START] task={task_id}", flush=True)
 
     total_reward = 0.0
     step_num     = 0
 
     try:
-        state = reset_env(task_id, base_url)
-        goal  = state.get("goal", {})
+        state     = reset_env(task_id, base_url)
+        goal      = state.get("goal", {})
+        max_steps = state.get("remaining_steps", 8)
+        done      = False
 
-        system_prompt = f"""You are an AI travel planning agent operating inside an OpenEnv tool-orchestration environment.
+        system_prompt = f"""You are an AI travel planning agent.
 
 Your goal: {json.dumps(goal, indent=2)}
 
-You have access to three tools:
-- get_weather(city)          — check temperature and conditions
-- search_flights(source, destination) — find flights and prices
-- book_ticket(flight_number) — book a flight
+Tools available:
+- get_weather(city)
+- search_flights(source, destination)
+- book_ticket(flight_number)
 
 Rules:
-- Only call tools that are relevant to the current goal.
-- If a tool returns an error, retry once with the same parameters before giving up.
-- For the hard task: first find cities with temperature 20-30 degrees C, then find the cheapest flight under budget, then book it.
-- Stop calling tools once the goal is achieved or steps run out.
+- Check weather first to find cities with temperature 20-30 degrees C.
+- Then search flights and pick the cheapest under budget.
+- For hard task: also book the ticket.
+- Retry once on errors.
+- Stop when goal is complete or steps run out.
 """
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": f"Complete the goal. Task: {task_id}. Goal: {json.dumps(goal)}"}
+            {"role": "user",   "content": f"Complete the task. task_id={task_id} goal={json.dumps(goal)}"}
         ]
-
-        max_steps = state.get("remaining_steps", 8)
-        done      = False
 
         while not done and step_num < max_steps:
             try:
@@ -189,59 +197,60 @@ Rules:
 
             msg = response.choices[0].message
 
-            if msg.tool_calls:
-                tool_call  = msg.tool_calls[0]
-                tool_name  = tool_call.function.name
-
-                try:
-                    parameters = json.loads(tool_call.function.arguments)
-                except Exception:
-                    parameters = {}
-
-                result       = call_tool(tool_name, parameters, base_url)
-                tool_output  = result.get("state", {}).get("last_tool_output", {})
-                reward       = result.get("reward", 0)
-                done         = result.get("done", False)
-                total_reward = result.get("state", {}).get("total_reward", total_reward)
-                step_num    += 1
-
-                # ── STEP ──
-                print(f"[STEP] step={step_num} tool={tool_name} reward={reward}", flush=True)
-
-                messages.append({"role": "assistant", "content": None, "tool_calls": msg.tool_calls})
-                messages.append({
-                    "role":         "tool",
-                    "tool_call_id": tool_call.id,
-                    "content":      json.dumps(tool_output)
-                })
-            else:
+            if not msg.tool_calls:
                 break
+
+            tool_call  = msg.tool_calls[0]
+            tool_name  = tool_call.function.name
+            try:
+                parameters = json.loads(tool_call.function.arguments)
+            except Exception:
+                parameters = {}
+
+            result       = call_tool(tool_name, parameters, base_url)
+            tool_output  = result.get("state", {}).get("last_tool_output", {})
+            reward       = result.get("reward", 0)
+            done         = result.get("done", False)
+            total_reward = result.get("state", {}).get("total_reward", total_reward)
+            step_num    += 1
+
+            print(f"[STEP] step={step_num} tool={tool_name} reward={reward}", flush=True)
+
+            messages.append({"role": "assistant", "content": None, "tool_calls": msg.tool_calls})
+            messages.append({
+                "role":         "tool",
+                "tool_call_id": tool_call.id,
+                "content":      json.dumps(tool_output)
+            })
 
     except Exception as e:
         step_num += 1
         print(f"[STEP] step={step_num} tool=error reward=0", flush=True)
         total_reward = 0.0
 
-    normalized_score = min(total_reward / 10.0, 1.0)
+    # Score must be strictly between 0 and 1
+    score = clamp_score(total_reward)
 
-    # ── END ──
-    print(f"[END] task={task_id} score={normalized_score:.4f} steps={step_num}", flush=True)
+    print(f"[END] task={task_id} score={score:.4f} steps={step_num}", flush=True)
 
     return {
-        "task_id":          task_id,
-        "total_reward":     total_reward,
-        "normalized_score": normalized_score,
-        "steps":            step_num
+        "task_id":      task_id,
+        "total_reward": total_reward,
+        "score":        score,
+        "steps":        step_num
     }
 
 
 # =========================
-# ENTRY POINT
+# ENTRY POINT — runs ALL 3 tasks
 # =========================
 
 if __name__ == "__main__":
-    task    = sys.argv[1] if len(sys.argv) > 1 else "hard"
-    env_url = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:7860"
+    base_url = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:7860"
 
-    result = run_agent(task_id=task, base_url=env_url)
-    print(json.dumps(result, indent=2))
+    # Always run all 3 tasks so the evaluator sees 3 graded results
+    results = {}
+    for task_id in ["easy", "medium", "hard"]:
+        results[task_id] = run_task(task_id, base_url)
+
+    print(json.dumps(results, indent=2))
