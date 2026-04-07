@@ -139,7 +139,11 @@ def reset_env(task_id: str, base_url: str = "http://localhost:7860") -> dict:
 
 def run_agent(task_id: str = "hard", base_url: str = "http://localhost:7860"):
 
-    print("START", flush=True)
+    # ── START ──
+    print(f"[START] task={task_id}", flush=True)
+
+    total_reward = 0.0
+    step_num     = 0
 
     try:
         state = reset_env(task_id, base_url)
@@ -166,10 +170,8 @@ Rules:
             {"role": "user",   "content": f"Complete the goal. Task: {task_id}. Goal: {json.dumps(goal)}"}
         ]
 
-        max_steps    = state.get("remaining_steps", 8)
-        total_reward = 0.0
-        step_num     = 0
-        done         = False
+        max_steps = state.get("remaining_steps", 8)
+        done      = False
 
         while not done and step_num < max_steps:
             try:
@@ -181,7 +183,8 @@ Rules:
                     max_tokens=512,
                 )
             except Exception as e:
-                print(f"STEP tool=error params={{}} output={{\"error\": \"{str(e)}\"}} reward=0", flush=True)
+                step_num += 1
+                print(f"[STEP] step={step_num} tool=error reward=0", flush=True)
                 break
 
             msg = response.choices[0].message
@@ -202,8 +205,8 @@ Rules:
                 total_reward = result.get("state", {}).get("total_reward", total_reward)
                 step_num    += 1
 
-                print(f"STEP tool={tool_name} params={json.dumps(parameters)} "
-                      f"output={json.dumps(tool_output)} reward={reward}", flush=True)
+                # ── STEP ──
+                print(f"[STEP] step={step_num} tool={tool_name} reward={reward}", flush=True)
 
                 messages.append({"role": "assistant", "content": None, "tool_calls": msg.tool_calls})
                 messages.append({
@@ -215,13 +218,14 @@ Rules:
                 break
 
     except Exception as e:
-        print(f"STEP tool=error params={{}} output={{\"error\": \"{str(e)}\"}} reward=0", flush=True)
+        step_num += 1
+        print(f"[STEP] step={step_num} tool=error reward=0", flush=True)
         total_reward = 0.0
-        step_num     = 0
 
     normalized_score = min(total_reward / 10.0, 1.0)
 
-    print(f"END total_reward={total_reward:.2f} normalized_score={normalized_score:.4f}", flush=True)
+    # ── END ──
+    print(f"[END] task={task_id} score={normalized_score:.4f} steps={step_num}", flush=True)
 
     return {
         "task_id":          task_id,
